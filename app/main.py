@@ -50,3 +50,37 @@ def get_post(id: int, db: Session = Depends(get_db)):
         # Catch any unexpected errors and raise a 500 error
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete('/posts/{id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(id: int, db: Session = Depends(get_db)):
+    try:
+        post = db.query(models.Post).filter(models.Post.id == id)
+        if post.first() == None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"post with id:{id} does not exist ")
+        post.delete(synchronize_session=False)
+        db.commit()
+    except Exception as e:
+        # Catch any unexpected errors and raise a 500 error
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import FastAPI, HTTPException, Depends, status
+from sqlalchemy.orm import Session
+from . import models
+from .database import get_db
+
+app = FastAPI()
+
+@app.put('/posts/{id}', status_code=status.HTTP_200_OK)
+def update_post(id: int, updated_post: Post, db: Session = Depends(get_db)):
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    existing_post = post_query.first()
+    
+    if existing_post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Post with id {id} not found")
+
+    # Use `post.dict()` with `exclude_unset=True` to only update fields provided in the request body
+    post_query.update(updated_post.dict(), synchronize_session=False)
+    db.commit()
+    
+    # Return the updated post
+    return {"data": post_query.first()}
